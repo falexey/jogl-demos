@@ -8,5 +8,7 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/Ant"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/SWT"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/jogamp"/>
-	<classpathentry kind="output" path="build"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/Gluegen"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/Jogl"/>
+	<classpathentry kind="output" path="build/classes"/>
 </classpath>

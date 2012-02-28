@@ -16,7 +16,7 @@
       <property name="sun.java2d.noddraw" value="true"/>
       <jar href="jar/jogl-demos.jar" main="true"/>
       <jar href="jar/jogl-demos-util.jar" />
-      <extension name="jogl-all-awt" href="JOGL_CODEBASE_TAG/jogl-all-awt.jnlp" />
+      <extension name="jogl-all-awt" href="http://jogamp.org/deployment/archive/rc/v2.0-rc5/jogl-all-awt.jnlp" />
     </resources>
 
   <application-desc main-class="demos.gears.Gears">
