@@ -92,7 +92,6 @@ public class TennisNEWT implements GLEventListener {
       glWindow.setVisible(true);
       
       animator.setUpdateFPSFrames(60, System.err);
-      System.err.println("Hello");
       animator.start();
       
     final TennisNEWT tennis = new TennisNEWT();
