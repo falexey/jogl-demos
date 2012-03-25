@@ -16,6 +16,7 @@ import com.jogamp.opengl.util.glsl.ShaderProgram;
 import com.jogamp.opengl.util.glsl.ShaderState;
 import com.jogamp.opengl.util.texture.Texture;
 import com.jogamp.opengl.util.texture.TextureCoords;
+import com.jogamp.opengl.util.texture.TextureData;
 import com.jogamp.opengl.util.texture.TextureIO;
 
 import java.nio.FloatBuffer;
@@ -59,6 +60,7 @@ public class TennisES2 implements GLEventListener {
   private float EnDeskCx = 0.0f, EnDeskCy = 0.0f;						//X, Y coords of Endesk
   private int   cube=0, mydesk=0, endesk=0, ball=0, box=0;				//Flags of the existence 
   private int   swapInterval;
+  private static TextureData[] textureData;
   private static Texture[] texture;
   private float Bax=0, Bay=0;											//Acceleration summands
   private static float Vec=3;											//Balls direction
@@ -84,8 +86,9 @@ public class TennisES2 implements GLEventListener {
   PMVMatrix ObjPmvMatrix;
   GLUniformData pmvMatrixUniform;
   GLUniformData colorUniform;
-  private FloatBuffer lightPos = Buffers.newDirectFloatBuffer( new float[] { -3.0f, 3.0f, -3.0f } );
+  private FloatBuffer lightPos = Buffers.newDirectFloatBuffer( new float[] { -0.5f, 0.5f, 1.0f } );
   private GLUniformData colorU = null;
+  private GLUniformData activeTexture = null;
  
   private static GLArrayDataServer CubeFront;
   private static GLArrayDataServer CubeBack;
@@ -93,14 +96,15 @@ public class TennisES2 implements GLEventListener {
   private static GLArrayDataServer CubeBottom;
   private static GLArrayDataServer CubeLeft;
   private static GLArrayDataServer CubeRight;
-  private static GLArrayDataServer BoxFront;
+  private static GLArrayDataServer Box;
   private static GLArrayDataServer Ball;
   private static GLArrayDataServer DeskFront, DeskBack, DeskSides, DeskTop, DeskBottom;
   
   public static final FloatBuffer red = Buffers.newDirectFloatBuffer( new float[] { 0.8f, 0.1f, 0.0f, 0.7f } );
   public static final FloatBuffer brown = Buffers.newDirectFloatBuffer( new float[] { 0.8f, 0.4f, 0.1f, 0.7f } );
   public static final FloatBuffer blue = Buffers.newDirectFloatBuffer( new float[] { 0.2f, 0.2f, 1.0f, 0.7f } );
-  public static final FloatBuffer yellow = Buffers.newDirectFloatBuffer( new float[] { 0.8f, 0.75f, 0.0f, 0.7f } );
+  public static final FloatBuffer yellow = Buffers.newDirectFloatBuffer( new float[] { 0.8f, 0.75f, 0.0f, 1.0f } );
+  public static final FloatBuffer white = Buffers.newDirectFloatBuffer( new float[] { 1.0f, 1.0f, 1.0f, 0.0f } );
   
   public static void main(String[] args) {
     // set argument 'NotFirstUIActionOnProcess' in the JNLP's application-desc tag for example
@@ -113,7 +117,7 @@ public class TennisES2 implements GLEventListener {
       GLCapabilities caps = new GLCapabilities(GLProfile.getDefault());
       glWindow = GLWindow.create(screen, caps);
       
-      glWindow.setTitle("TennisNEWT demo");
+      glWindow.setTitle("TennisES2 demo");
       glWindow.setSize(640, 480);
       glWindow.setPosition(40, 40);
       glWindow.setUndecorated(false);
@@ -231,31 +235,43 @@ public class TennisES2 implements GLEventListener {
     System.err.println("GL_RENDERER: " + gl.glGetString(GL2.GL_RENDERER));
     System.err.println("GL_VERSION: " + gl.glGetString(GL2.GL_VERSION));
     
+    textureData = new TextureData[5];
     texture = new Texture[5];
-    
+     
     //Load textures
     try {
         System.err.println("Loading texture...");
-        texture[0] = TextureIO.newTexture(getClass().getClassLoader().getResourceAsStream("demos/data/tennis/TennisTop.png"),
+        textureData[0] = TextureIO.newTextureData(gl.getGLProfile(), 
+        		getClass().getClassLoader().getResourceAsStream("demos/data/tennis/TennisTop.png"),
                 false,
                 TextureIO.PNG);
-        texture[1] = TextureIO.newTexture(getClass().getClassLoader().getResourceAsStream("demos/data/tennis/TennisBottom.png"),
+        textureData[1] = TextureIO.newTextureData(gl.getGLProfile(), 
+        		getClass().getClassLoader().getResourceAsStream("demos/data/tennis/TennisBottom.png"),
         		false,
                 TextureIO.PNG);
-        texture[2] = TextureIO.newTexture(getClass().getClassLoader().getResourceAsStream("demos/data/tennis/TennisMyDesk.png"),
+        textureData[2] = TextureIO.newTextureData(gl.getGLProfile(), 
+        		getClass().getClassLoader().getResourceAsStream("demos/data/tennis/TennisMyDesk.png"),
         		false,
                 TextureIO.PNG);
-        texture[3] = TextureIO.newTexture(getClass().getClassLoader().getResourceAsStream("demos/data/tennis/TennisEnDesk.png"),
+        textureData[3] = TextureIO.newTextureData(gl.getGLProfile(), 
+        		getClass().getClassLoader().getResourceAsStream("demos/data/tennis/TennisEnDesk.png"),
         		false,
                 TextureIO.PNG);
-        texture[4] = TextureIO.newTexture(getClass().getClassLoader().getResourceAsStream("demos/data/tennis/Stars.png"),
+        textureData[4] = TextureIO.newTextureData(gl.getGLProfile(), 
+        		getClass().getClassLoader().getResourceAsStream("demos/data/tennis/Stars.png"),
         		false,
                 TextureIO.PNG);
-        System.err.println("Texture0 estimated memory size = " + texture[0].getEstimatedMemorySize());
-        System.err.println("Texture1 estimated memory size = " + texture[1].getEstimatedMemorySize());
-        System.err.println("Texture2 estimated memory size = " + texture[2].getEstimatedMemorySize());
-        System.err.println("Texture3 estimated memory size = " + texture[3].getEstimatedMemorySize());
-        System.err.println("Stars estimated memory size = " + texture[4].getEstimatedMemorySize());
+        System.err.println("Texture0 estimated memory size = " + textureData[0].getEstimatedMemorySize());
+        System.err.println("Texture1 estimated memory size = " + textureData[1].getEstimatedMemorySize());
+        System.err.println("Texture2 estimated memory size = " + textureData[2].getEstimatedMemorySize());
+        System.err.println("Texture3 estimated memory size = " + textureData[3].getEstimatedMemorySize());
+        System.err.println("Stars estimated memory size = " + textureData[4].getEstimatedMemorySize());
+        
+        for(int i=0; i<5; i++) {
+            gl.glActiveTexture(i);
+            texture[i] = new Texture(GL.GL_TEXTURE_2D);
+            texture[i].updateImage(gl, textureData[i]);
+        }
       } catch (IOException e) {
         e.printStackTrace();
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -284,10 +300,17 @@ public class TennisES2 implements GLEventListener {
     pmvMatrixUniform = new GLUniformData("pmvMatrix", 4, 4, pmvMatrix.glGetPMvMvitMatrixf()); // P, Mv, Mvi and Mvit
     st.ownUniform(pmvMatrixUniform);
     st.uniform(gl, pmvMatrixUniform);
+    
+    GLUniformData lightU = new GLUniformData("lightPos", 3, lightPos);
+    st.uniform(gl, lightU);
 
     colorU = new GLUniformData("color", 4, red);
     st.ownUniform(colorU);
     st.uniform(gl, colorU);
+    
+    activeTexture = new GLUniformData("Texture", 0);
+    st.ownUniform(activeTexture);
+    st.uniform(gl, activeTexture);
     
     ObjPmvMatrix = pmvMatrix;
     		
@@ -365,23 +388,19 @@ public class TennisES2 implements GLEventListener {
       gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
     }  
     
-    gl.glDisable(GL2.GL_DEPTH_TEST);
-    draw(gl, BoxFront, GL2.GL_QUADS);
-    gl.glEnable(GL2.GL_DEPTH_TEST);
-    
     st.useProgram(gl, true);
+    
+    gl.glDisable(GL2.GL_DEPTH_TEST);
+    
+    DrawBox(gl);
+    
+    gl.glEnable(GL2.GL_DEPTH_TEST);
+       
     pmvMatrix.glPushMatrix();
     pmvMatrix.glRotatef(view_rotx, 1.0f, 0.0f, 0.0f);
     pmvMatrix.glRotatef(view_roty, 0.0f, 1.0f, 0.0f);
     pmvMatrix.glRotatef(view_rotz, 0.0f, 0.0f, 1.0f);
     
-    lightPos = Buffers.newDirectFloatBuffer( new float[] { BallCx, BallCy, BallCz } );
-    
-    GLUniformData lightU = new GLUniformData("lightPos", 3, lightPos);
-    st.ownUniform(lightU);
-    st.uniform(gl, lightU);
-    
-    //draw(gl, DeskBack, GL2.GL_QUAD_STRIP);
     DrawCube(gl);
     DrawMyDesk(gl);
     DrawEnDesk(gl);
@@ -390,6 +409,30 @@ public class TennisES2 implements GLEventListener {
     pmvMatrix.glPopMatrix();
     st.useProgram(gl, false); 
             
+  }
+  
+  public void DrawBox(GL2ES2 gl)
+  {
+	  
+	  ObjPmvMatrix.glPushMatrix();
+	  ObjPmvMatrix.glTranslatef(0f, 0f, 0f);
+	  ObjPmvMatrix.glRotatef(0f, 0f, 0f, 1f);
+	  ObjPmvMatrix.update();
+	  st.uniform(gl, pmvMatrixUniform);
+		
+	  colorU.setData(white);
+	  st.uniform(gl, colorU);
+		
+	  gl.glActiveTexture(GL.GL_TEXTURE0);
+	  texture[4].enable(gl);
+	  texture[4].bind(gl);
+	  activeTexture.setData(0);
+	  st.uniform(gl, activeTexture);
+	    
+	  draw(gl, Box, GL2.GL_QUADS);
+	  
+	  ObjPmvMatrix.glPopMatrix();
+	  	
   }
   
   public void DrawCube(GL2ES2 gl)
@@ -408,7 +451,24 @@ public class TennisES2 implements GLEventListener {
 	  draw(gl, CubeBack, GL2.GL_QUADS);
 	  draw(gl, CubeLeft, GL2.GL_QUADS);
 	  draw(gl, CubeRight, GL2.GL_QUADS);
+	  
+	  colorU.setData(white);
+	  st.uniform(gl, colorU);
+	  
+	  gl.glActiveTexture(GL.GL_TEXTURE0);
+	  texture[0].enable(gl);
+	  texture[0].bind(gl);
+	  activeTexture.setData(0);
+	  st.uniform(gl, activeTexture);
+	  texture[0].disable(gl);
 	  draw(gl, CubeTop, GL2.GL_QUADS);
+	  
+	  gl.glActiveTexture(GL.GL_TEXTURE0);
+	  texture[1].enable(gl);
+	  texture[1].bind(gl);
+	  activeTexture.setData(0);
+	  st.uniform(gl, activeTexture);
+	  texture[1].disable(gl);
 	  draw(gl, CubeBottom, GL2.GL_QUADS);
 	  
 	  ObjPmvMatrix.glPopMatrix();
@@ -445,12 +505,23 @@ public class TennisES2 implements GLEventListener {
 	  colorU.setData(red);
 	  st.uniform(gl, colorU);
 	  
-	  draw(gl, DeskFront, GL2.GL_QUAD_STRIP);
-	  draw(gl, DeskBack, GL2.GL_QUAD_STRIP);
 	  draw(gl, DeskTop, GL2.GL_QUAD_STRIP);
 	  draw(gl, DeskBottom, GL2.GL_QUAD_STRIP);
-	  draw(gl, DeskSides, GL2.GL_QUAD_STRIP);
+	  draw(gl, DeskSides, GL2.GL_QUADS);
 	  
+	  gl.glActiveTexture(GL.GL_TEXTURE0);
+	  texture[2].enable(gl);
+	  texture[2].bind(gl);
+	  activeTexture.setData(0);
+	  st.uniform(gl, activeTexture);
+	  texture[2].disable(gl);
+	  
+	  colorU.setData(white);
+	  st.uniform(gl, colorU);
+	  
+	  draw(gl, DeskFront, GL2.GL_QUAD_STRIP);
+	  draw(gl, DeskBack, GL2.GL_QUAD_STRIP);
+	    
 	  ObjPmvMatrix.glPopMatrix();
 	  
   }
@@ -467,11 +538,22 @@ public class TennisES2 implements GLEventListener {
 	  colorU.setData(blue);
 	  st.uniform(gl, colorU);
 	  
-	  draw(gl, DeskFront, GL2.GL_QUAD_STRIP);
-	  draw(gl, DeskBack, GL2.GL_QUAD_STRIP);
 	  draw(gl, DeskTop, GL2.GL_QUAD_STRIP);
 	  draw(gl, DeskBottom, GL2.GL_QUAD_STRIP);
-	  draw(gl, DeskSides, GL2.GL_QUAD_STRIP);
+	  draw(gl, DeskSides, GL2.GL_QUADS);
+	  
+	  gl.glActiveTexture(GL.GL_TEXTURE0);
+	  texture[3].enable(gl);
+	  texture[3].bind(gl);
+	  activeTexture.setData(0);
+	  st.uniform(gl, activeTexture);
+	  texture[3].disable(gl);
+	  
+	  colorU.setData(white);
+	  st.uniform(gl, colorU);
+	  
+	  draw(gl, DeskFront, GL2.GL_QUAD_STRIP);
+	  draw(gl, DeskBack, GL2.GL_QUAD_STRIP);	 
 	  
 	  ObjPmvMatrix.glPopMatrix();
 	  
@@ -486,7 +568,7 @@ public class TennisES2 implements GLEventListener {
 	gl.setSwapInterval(swapInterval);
 
 	float h = (float)height / (float)width;
-	
+	 
 	WindowW = width;
 	WindowH = height;
 	
@@ -513,145 +595,145 @@ public class TennisES2 implements GLEventListener {
   public static void cube(GL2ES2 gl)
   {
 	
-	CubeFront = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
+	CubeFront = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
     CubeFront.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
     CubeFront.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+    CubeFront.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
     
-    CubeBack = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
+    CubeBack = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
     CubeBack.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
     CubeBack.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+    CubeBack.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
     
-    CubeTop = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
+    CubeTop = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
     CubeTop.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
     CubeTop.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+    CubeTop.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
     
-    CubeBottom = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
+    CubeBottom = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
     CubeBottom.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
     CubeBottom.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+    CubeBottom.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
     
-    CubeLeft = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
+    CubeLeft = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
     CubeLeft.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
     CubeLeft.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+    CubeLeft.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
     
-    CubeRight = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
+    CubeRight = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
     CubeRight.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
     CubeRight.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+    CubeRight.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
     
     float normal[] = new float[3];
+    float tcoords[] = new float[2];
 
 	/* draw left sides */
 	
 		normal[0] = 1.0f; normal[1] = 0.0f; normal[2] = 0.0f;
-		vert(CubeLeft, -2.0f, -1.5f, -3.0f, normal);
-		vert(CubeLeft, -2.0f,  1.5f, -3.0f, normal);
-		vert(CubeLeft, -2.0f,  1.5f,  3.0f, normal);
-		vert(CubeLeft, -2.0f, -1.5f,  3.0f, normal);
+		vert(CubeLeft, -2.0f, -1.5f, -3.0f, normal, tcoords);
+		vert(CubeLeft, -2.0f,  1.5f, -3.0f, normal, tcoords);
+		vert(CubeLeft, -2.0f,  1.5f,  3.0f, normal, tcoords);
+		vert(CubeLeft, -2.0f, -1.5f,  3.0f, normal, tcoords);
 		
 		normal[0] = -1.0f; normal[1] = 0.0f; normal[2] = 0.0f;
-		vert(CubeLeft, -2.05f, -1.55f, -3.0f, normal);
-		vert(CubeLeft, -2.05f,  1.55f, -3.0f, normal);
-		vert(CubeLeft, -2.05f,  1.55f,  3.0f, normal);
-		vert(CubeLeft, -2.05f, -1.55f,  3.0f, normal);
+		vert(CubeLeft, -2.05f, -1.55f, -3.0f, normal, tcoords);
+		vert(CubeLeft, -2.05f,  1.55f, -3.0f, normal, tcoords);
+		vert(CubeLeft, -2.05f,  1.55f,  3.0f, normal, tcoords);
+		vert(CubeLeft, -2.05f, -1.55f,  3.0f, normal, tcoords);
 		
 		CubeLeft.seal(true);
 	
 	if (texture[0] != null) {
-	      texture[0].enable(gl);
-	      texture[0].bind(gl);
-	      //gl.glTexEnvi(GL2.GL_TEXTURE_ENV, GL2.GL_TEXTURE_ENV_MODE, GL.GL_REPLACE);
 	      TextureCoords coords = texture[0].getImageTexCoords();
 	
 	/* draw up sides */
 	
 		normal[0] = 0.0f; normal[1] = -1.0f; normal[2] = 0.0f;
-		//gl.glTexCoord2f(coords.left(), coords.top());
-		vert(CubeTop, -2.0f, 1.5f, -3.0f, normal);
-		//gl.glTexCoord2f(coords.left(), coords.bottom());
-		vert(CubeTop, -2.0f, 1.5f,  3.0f, normal);
-		//gl.glTexCoord2f(coords.right(), coords.bottom());
-		vert(CubeTop, 2.0f, 1.5f,  3.0f, normal);
-		//gl.glTexCoord2f(coords.right(), coords.top());
-		vert(CubeTop, 2.0f, 1.5f, -3.0f, normal);
+		tcoords[0] = coords.left(); tcoords[1] = coords.top();
+		vert(CubeTop, -2.0f, 1.5f, -3.0f, normal, tcoords);
+		tcoords[0] = coords.left(); tcoords[1] = coords.bottom();
+		vert(CubeTop, -2.0f, 1.5f,  3.0f, normal, tcoords);
+		tcoords[0] = coords.right(); tcoords[1] = coords.bottom();
+		vert(CubeTop, 2.0f, 1.5f,  3.0f, normal, tcoords);
+		tcoords[0] = coords.right(); tcoords[1] = coords.top();
+		vert(CubeTop, 2.0f, 1.5f, -3.0f, normal, tcoords);	
 	
-		texture[0].disable(gl);
-	}	
-	
+		tcoords[0] = coords.right(); tcoords[1] = coords.bottom();
 		normal[0] = 0.0f; normal[1] = 1.0f; normal[2] = 0.0f;
-		vert(CubeTop, -2.05f, 1.55f, -3.0f, normal);
-		vert(CubeTop, -2.05f, 1.55f,  3.0f, normal);
-		vert(CubeTop,  2.05f, 1.55f,  3.0f, normal);
-		vert(CubeTop,  2.05f, 1.55f, -3.0f, normal);
+		vert(CubeTop, -2.05f, 1.55f, -3.0f, normal, tcoords);
+		vert(CubeTop, -2.05f, 1.55f,  3.0f, normal, tcoords);
+		vert(CubeTop,  2.05f, 1.55f,  3.0f, normal, tcoords);
+		vert(CubeTop,  2.05f, 1.55f, -3.0f, normal, tcoords);
 		
 		CubeTop.seal(true);
+
+	}
 	
 	/* draw right sides */
 	
 		normal[0] = -1.0f; normal[1] = 0.0f; normal[2] = 0.0f;
-		vert(CubeRight, 2.0f, -1.5f, -3.0f, normal);
-		vert(CubeRight, 2.0f,  1.5f, -3.0f, normal);
-		vert(CubeRight, 2.0f,  1.5f,  3.0f, normal);
-		vert(CubeRight, 2.0f, -1.5f,  3.0f, normal);
+		vert(CubeRight, 2.0f, -1.5f, -3.0f, normal, tcoords);
+		vert(CubeRight, 2.0f,  1.5f, -3.0f, normal, tcoords);
+		vert(CubeRight, 2.0f,  1.5f,  3.0f, normal, tcoords);
+		vert(CubeRight, 2.0f, -1.5f,  3.0f, normal, tcoords);
 		
 		normal[0] = 1.0f; normal[1] = 0.0f; normal[2] = 0.0f;
-		vert(CubeRight, 2.05f, -1.55f, -3.0f, normal);
-		vert(CubeRight, 2.05f,  1.55f, -3.0f, normal);
-		vert(CubeRight, 2.05f,  1.55f,  3.0f, normal);
-		vert(CubeRight, 2.05f, -1.55f,  3.0f, normal);
+		vert(CubeRight, 2.05f, -1.55f, -3.0f, normal, tcoords);
+		vert(CubeRight, 2.05f,  1.55f, -3.0f, normal, tcoords);
+		vert(CubeRight, 2.05f,  1.55f,  3.0f, normal, tcoords);
+		vert(CubeRight, 2.05f, -1.55f,  3.0f, normal, tcoords);
 		
 		CubeRight.seal(true);
 	
 	if (texture[1] != null) {
-	      texture[1].enable(gl);
-	      texture[1].bind(gl);
-	      //gl.glTexEnvi(GL2.GL_TEXTURE_ENV, GL2.GL_TEXTURE_ENV_MODE, GL.GL_REPLACE);
 	      TextureCoords coords = texture[1].getImageTexCoords();
 	
 	/* draw down sides */
 	
 	    normal[0] = 0.0f; normal[1] = 1.0f; normal[2] = 0.0f;
-		//gl.glTexCoord2f(coords.left(), coords.top());
-		vert(CubeBottom, -2.0f, -1.5f, -3.0f, normal);
-		//gl.glTexCoord2f(coords.left(), coords.bottom());
-		vert(CubeBottom, -2.0f, -1.5f,  3.0f, normal);
-		//gl.glTexCoord2f(coords.right(), coords.bottom());
-		vert(CubeBottom, 2.0f, -1.5f,  3.0f, normal);
-		//gl.glTexCoord2f(coords.right(), coords.top());
-		vert(CubeBottom, 2.0f, -1.5f, -3.0f, normal);
+	    tcoords[0] = coords.left(); tcoords[1] = coords.top();
+		vert(CubeBottom, -2.0f, -1.5f, -3.0f, normal, tcoords);
+		tcoords[0] = coords.left(); tcoords[1] = coords.bottom();
+		vert(CubeBottom, -2.0f, -1.5f,  3.0f, normal, tcoords);
+		tcoords[0] = coords.right(); tcoords[1] = coords.bottom();
+		vert(CubeBottom, 2.0f, -1.5f,  3.0f, normal, tcoords);
+		tcoords[0] = coords.right(); tcoords[1] = coords.top();
+		vert(CubeBottom, 2.0f, -1.5f, -3.0f, normal, tcoords);
 		
 		normal[0] = 0.0f; normal[1] = -1.0f; normal[2] = 0.0f;
-		vert(CubeBottom, -2.05f, -1.55f, -3.0f, normal);
-		vert(CubeBottom, -2.05f, -1.55f,  3.0f, normal);
-		vert(CubeBottom,  2.05f, -1.55f,  3.0f, normal);
-		vert(CubeBottom,  2.05f, -1.55f, -3.0f, normal);
+		vert(CubeBottom, -2.05f, -1.55f, -3.0f, normal, tcoords);
+		vert(CubeBottom, -2.05f, -1.55f,  3.0f, normal, tcoords);
+		vert(CubeBottom,  2.05f, -1.55f,  3.0f, normal, tcoords);
+		vert(CubeBottom,  2.05f, -1.55f, -3.0f, normal, tcoords);
 		
 		CubeBottom.seal(true);
 	
-		texture[1].disable(gl);
 	}
 	
 	/* draw back sides */
 	
 		normal[0] = 0.0f; normal[1] = 0.0f; normal[2] = -1.0f;
 		
-		vert(CubeBack, -2.05f, 1.55f, -3.0f, normal);
-		vert(CubeBack,  2.05f, 1.55f, -3.0f, normal);
-		vert(CubeBack,  2.0f, 1.5f, -3.0f, normal);
-		vert(CubeBack, -2.0f, 1.5f, -3.0f, normal);
+		vert(CubeBack, -2.05f, 1.55f, -3.0f, normal, tcoords);
+		vert(CubeBack,  2.05f, 1.55f, -3.0f, normal, tcoords);
+		vert(CubeBack,  2.0f, 1.5f, -3.0f, normal, tcoords);
+		vert(CubeBack, -2.0f, 1.5f, -3.0f, normal, tcoords);
 		
-		vert(CubeBack, -2.05f, -1.55f, -3.0f, normal);
-		vert(CubeBack,  2.05f, -1.55f, -3.0f, normal);
-		vert(CubeBack,  2.0f, -1.5f, -3.0f, normal);
-		vert(CubeBack, -2.0f, -1.5f, -3.0f, normal);
+		vert(CubeBack, -2.05f, -1.55f, -3.0f, normal, tcoords);
+		vert(CubeBack,  2.05f, -1.55f, -3.0f, normal, tcoords);
+		vert(CubeBack,  2.0f, -1.5f, -3.0f, normal, tcoords);
+		vert(CubeBack, -2.0f, -1.5f, -3.0f, normal, tcoords);
 		
-		vert(CubeBack, -2.05f, -1.55f, -3.0f, normal);
-		vert(CubeBack, -2.05f, 1.55f, -3.0f, normal);
-		vert(CubeBack, -2.0f, 1.5f, -3.0f, normal);
-		vert(CubeBack, -2.0f, -1.5f, -3.0f, normal);
+		vert(CubeBack, -2.05f, -1.55f, -3.0f, normal, tcoords);
+		vert(CubeBack, -2.05f, 1.55f, -3.0f, normal, tcoords);
+		vert(CubeBack, -2.0f, 1.5f, -3.0f, normal, tcoords);
+		vert(CubeBack, -2.0f, -1.5f, -3.0f, normal, tcoords);
 		
-		vert(CubeBack, 2.05f, -1.55f, -3.0f, normal);
-		vert(CubeBack, 2.05f, 1.55f, -3.0f, normal);
-		vert(CubeBack, 2.0f, 1.5f, -3.0f, normal);
-		vert(CubeBack, 2.0f, -1.5f, -3.0f, normal);	
+		vert(CubeBack, 2.05f, -1.55f, -3.0f, normal, tcoords);
+		vert(CubeBack, 2.05f, 1.55f, -3.0f, normal, tcoords);
+		vert(CubeBack, 2.0f, 1.5f, -3.0f, normal, tcoords);
+		vert(CubeBack, 2.0f, -1.5f, -3.0f, normal, tcoords);	
 		
 		CubeBack.seal(true);
 	
@@ -659,25 +741,25 @@ public class TennisES2 implements GLEventListener {
 	
 		normal[0] = 0.0f; normal[1] = 0.0f; normal[2] = 1.0f;
 		
-		vert(CubeFront, -2.05f, 1.55f, 3.0f, normal);
-		vert(CubeFront,  2.05f, 1.55f, 3.0f, normal);
-		vert(CubeFront,  2.0f, 1.5f, 3.0f, normal);
-		vert(CubeFront, -2.0f, 1.5f, 3.0f, normal);
+		vert(CubeFront, -2.05f, 1.55f, 3.0f, normal, tcoords);
+		vert(CubeFront,  2.05f, 1.55f, 3.0f, normal, tcoords);
+		vert(CubeFront,  2.0f, 1.5f, 3.0f, normal, tcoords);
+		vert(CubeFront, -2.0f, 1.5f, 3.0f, normal, tcoords);
 		
-		vert(CubeFront, -2.05f, -1.55f, 3.0f, normal);
-		vert(CubeFront,  2.05f, -1.55f, 3.0f, normal);
-		vert(CubeFront,  2.0f, -1.5f, 3.0f, normal);
-		vert(CubeFront, -2.0f, -1.5f, 3.0f, normal);
+		vert(CubeFront, -2.05f, -1.55f, 3.0f, normal, tcoords);
+		vert(CubeFront,  2.05f, -1.55f, 3.0f, normal, tcoords);
+		vert(CubeFront,  2.0f, -1.5f, 3.0f, normal, tcoords);
+		vert(CubeFront, -2.0f, -1.5f, 3.0f, normal, tcoords);
 		
-		vert(CubeFront, -2.05f, -1.55f, 3.0f, normal);
-		vert(CubeFront, -2.05f, 1.55f, 3.0f, normal);
-		vert(CubeFront, -2.0f, 1.5f, 3.0f, normal);
-		vert(CubeFront, -2.0f, -1.5f, 3.0f, normal);
+		vert(CubeFront, -2.05f, -1.55f, 3.0f, normal, tcoords);
+		vert(CubeFront, -2.05f, 1.55f, 3.0f, normal, tcoords);
+		vert(CubeFront, -2.0f, 1.5f, 3.0f, normal, tcoords);
+		vert(CubeFront, -2.0f, -1.5f, 3.0f, normal, tcoords);
 		
-		vert(CubeFront, 2.05f, -1.55f, 3.0f, normal);
-		vert(CubeFront, 2.05f, 1.55f, 3.0f, normal);
-		vert(CubeFront, 2.0f, 1.5f, 3.0f, normal);
-		vert(CubeFront, 2.0f, -1.5f, 3.0f, normal);
+		vert(CubeFront, 2.05f, -1.55f, 3.0f, normal, tcoords);
+		vert(CubeFront, 2.05f, 1.55f, 3.0f, normal, tcoords);
+		vert(CubeFront, 2.0f, 1.5f, 3.0f, normal, tcoords);
+		vert(CubeFront, 2.0f, -1.5f, 3.0f, normal, tcoords);
 		
 		CubeFront.seal(true);
 	  
@@ -686,36 +768,32 @@ public class TennisES2 implements GLEventListener {
   public static void box(GL2ES2 gl)	//Usually "box" mean box, but there only one side is enough
   {
 	
-	BoxFront = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 4, GL.GL_STATIC_DRAW);
-	BoxFront.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
-	BoxFront.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
-	//BoxFront.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
+	Box = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 4, GL.GL_STATIC_DRAW);
+	Box.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
+	Box.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+	Box.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
 	
 	float normal[] = new float[3];
-	//float tcoords[] = new float[2];
+	float tcoords[] = new float[2];
 	
 	if (texture[4] != null) {
-	      texture[4].enable(gl);
-	      texture[4].bind(gl);
 	      gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_REPEAT);
 	      gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_REPEAT);
-	      //gl.glTexEnvi(GL2.GL_TEXTURE_ENV, GL2.GL_TEXTURE_ENV_MODE, GL.GL_REPLACE);
-	
-	/* draw the side */
+	      
+	/* draw the box */
 	
 	    normal[0] = 0.0f; normal[1] = 0.0f; normal[2] = 1.0f;
-	    //tcoords[0] = 0.0f; tcoords[1] = 0.0f;
-		vert(BoxFront, -8.0f, -8.0f, 0.0f, normal);
-		//tcoords[0] = 0.0f; tcoords[1] = 8.0f;
-		vert(BoxFront, -8.0f, 8.0f, 0.0f, normal);
-		//tcoords[0] = 8.0f; tcoords[1] = 8.0f;
-		vert(BoxFront, 8.0f, 8.0f, 0.0f, normal);
-		//tcoords[0] = 8.0f; tcoords[1] = 0.0f;
-		vert(BoxFront, 8.0f, -8.0f, 0.0f, normal);
+	    tcoords[0] = 0.0f; tcoords[1] = 0.0f;
+		vert(Box, -16.0f, -16.0f, -10.0f, normal, tcoords);
+		tcoords[0] = 0.0f; tcoords[1] = 4.0f;
+		vert(Box, -16.0f, 16.0f, -10.0f, normal, tcoords);
+		tcoords[0] = 4.0f; tcoords[1] = 4.0f;
+		vert(Box, 16.0f, 16.0f, -10.0f, normal, tcoords);
+		tcoords[0] = 4.0f; tcoords[1] = 0.0f;
+		vert(Box, 16.0f, -16.0f, -10.0f, normal, tcoords);
 		
-		BoxFront.seal(true);
+			Box.seal(true);
 	
-		texture[4].disable(gl);
 	}
 	 
   }
@@ -726,34 +804,35 @@ public class TennisES2 implements GLEventListener {
 	int i;
 	float temp1;
 	
-	DeskFront = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 50, GL.GL_STATIC_DRAW);
+	DeskFront = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 50, GL.GL_STATIC_DRAW);
 	DeskFront.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
 	DeskFront.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+	DeskFront.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
 	
-	DeskBack = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 50, GL.GL_STATIC_DRAW);
+	DeskBack = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 50, GL.GL_STATIC_DRAW);
 	DeskBack.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
 	DeskBack.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+	DeskBack.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
 	
-	DeskTop = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 50, GL.GL_STATIC_DRAW);
+	DeskTop = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 50, GL.GL_STATIC_DRAW);
 	DeskTop.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
 	DeskTop.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+	DeskTop.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
 	
-	DeskBottom = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 50, GL.GL_STATIC_DRAW);
+	DeskBottom = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 50, GL.GL_STATIC_DRAW);
 	DeskBottom.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
 	DeskBottom.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+	DeskBottom.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
 	
-	DeskSides = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
+	DeskSides = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 8, GL.GL_STATIC_DRAW);
 	DeskSides.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
 	DeskSides.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+	DeskSides.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
 	
 	float normal[] = new float[3];
+	float tcoords[] = new float[2];
 
 	if (texture[two_or_three] != null) {
-	      texture[two_or_three].enable(gl);
-	      texture[two_or_three].bind(gl);
-	      gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S, GL2.GL_REPEAT);
-	      gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T, GL2.GL_REPEAT);
-	      //gl.glTexEnvi(GL2.GL_TEXTURE_ENV, GL2.GL_TEXTURE_ENV_MODE, GL.GL_REPLACE);
 	
 	/* draw the front */
 	
@@ -762,10 +841,10 @@ public class TennisES2 implements GLEventListener {
 		{
 			temp1 = (float) Math.pow(Math.sin(i/24.0f*Math.PI), 0.4d);
 			 
-			//gl.glTexCoord2f((i-12)/40.0f, temp1/4 + 0.75f);
-			vert(DeskFront, (i-12)/40.0f, temp1/10 + 0.1f , 0.01f + temp1/25, normal);
-			//gl.glTexCoord2f((i-12)/40.0f, -temp1/4 + 0.25f);
-			vert(DeskFront, (i-12)/40.0f, -temp1/10 - 0.1f, 0.01f + temp1/25, normal);	
+			tcoords[0] = (i-12)/40.0f; tcoords[1] = temp1/4 + 0.75f;
+			vert(DeskFront, (i-12)/40.0f, temp1/10 + 0.1f , 0.01f + temp1/25, normal, tcoords);
+			tcoords[0] = (i-12)/40.0f; tcoords[1] = -temp1/4 + 0.25f;
+			vert(DeskFront, (i-12)/40.0f, -temp1/10 - 0.1f, 0.01f + temp1/25, normal, tcoords);	
 		}
 		
 		DeskFront.seal(true);
@@ -777,16 +856,15 @@ public class TennisES2 implements GLEventListener {
 		{
 			temp1 = (float) Math.pow(Math.sin(i/24.0f*Math.PI), 0.4d);
 			
-			//gl.glTexCoord2f((i-12)/40.0f, temp1/4 + 0.75f);
-			vert(DeskBack, (i-12)/40.0f, temp1/10 + 0.1f , -0.01f - temp1/25, normal);
-			//gl.glTexCoord2f((i-12)/40.0f, -temp1/4 + 0.25f);
-			vert(DeskBack, (i-12)/40.0f, -temp1/10 - 0.1f, -0.01f - temp1/25, normal);
+			tcoords[0] = (i-12)/40.0f; tcoords[1] = temp1/4 + 0.75f;
+			vert(DeskBack, (i-12)/40.0f, temp1/10 + 0.1f , -0.01f - temp1/25, normal, tcoords);
+			tcoords[0] = (i-12)/40.0f; tcoords[1] = -temp1/4 + 0.25f;
+			vert(DeskBack, (i-12)/40.0f, -temp1/10 - 0.1f, -0.01f - temp1/25, normal, tcoords);
 			
 		}
 		
 		DeskBack.seal(true);
 
-	texture[2].disable(gl);
 	}		
 	
 	/* draw the top side */
@@ -796,8 +874,8 @@ public class TennisES2 implements GLEventListener {
 		{
 			temp1 = (float) Math.pow(Math.sin(i/24.0f*Math.PI), 0.4d);
 			
-			vert(DeskTop, (i-12)/40.0f, temp1/10 + 0.1f , -0.01f - temp1/25, normal);
-			vert(DeskTop, (i-12)/40.0f, temp1/10 + 0.1f , 0.01f + temp1/25, normal);
+			vert(DeskTop, (i-12)/40.0f, temp1/10 + 0.1f , -0.01f - temp1/25, normal, tcoords);
+			vert(DeskTop, (i-12)/40.0f, temp1/10 + 0.1f , 0.01f + temp1/25, normal, tcoords);
 		}
 		
 		DeskTop.seal(true);
@@ -809,8 +887,8 @@ public class TennisES2 implements GLEventListener {
 		{	
 			temp1 = (float) Math.pow(Math.sin(i/24.0f*Math.PI), 0.4d);
 			
-			vert(DeskBottom, (i-12)/40.0f, -temp1/10 - 0.1f, 0.01f + temp1/25, normal);
-			vert(DeskBottom, (i-12)/40.0f, -temp1/10 - 0.1f, -0.01f - temp1/25, normal);	
+			vert(DeskBottom, (i-12)/40.0f, -temp1/10 - 0.1f, 0.01f + temp1/25, normal, tcoords);
+			vert(DeskBottom, (i-12)/40.0f, -temp1/10 - 0.1f, -0.01f - temp1/25, normal, tcoords);	
 		}
 		
 		DeskBottom.seal(true);
@@ -818,16 +896,16 @@ public class TennisES2 implements GLEventListener {
 	/* draw the left and right sides */
 	
 			normal[0] = -1.0f; normal[1] = 0.0f; normal[2] = 0.0f;
-			vert(DeskSides, (-12)/40.0f, -0.1f, 0.01f, normal);
-			vert(DeskSides, (-12)/40.0f, +0.1f, 0.01f, normal);
-			vert(DeskSides, (-12)/40.0f, +0.1f, -0.01f, normal);
-			vert(DeskSides, (-12)/40.0f, -0.1f, -0.01f, normal);	
+			vert(DeskSides, (-12)/40.0f, -0.1f, 0.01f, normal, tcoords);
+			vert(DeskSides, (-12)/40.0f, +0.1f, 0.01f, normal, tcoords);
+			vert(DeskSides, (-12)/40.0f, +0.1f, -0.01f, normal, tcoords);
+			vert(DeskSides, (-12)/40.0f, -0.1f, -0.01f, normal, tcoords);	
 			
 			normal[0] = 1.0f; normal[1] = 0.0f; normal[2] = 0.0f;
-			vert(DeskSides, (+12)/40.0f, -0.1f, 0.01f, normal);
-			vert(DeskSides, (+12)/40.0f, +0.1f, 0.01f, normal);
-			vert(DeskSides, (+12)/40.0f, +0.1f, -0.01f, normal);
-			vert(DeskSides, (+12)/40.0f, -0.1f, -0.01f, normal);
+			vert(DeskSides, (+12)/40.0f, -0.1f, 0.01f, normal, tcoords);
+			vert(DeskSides, (+12)/40.0f, +0.1f, 0.01f, normal, tcoords);
+			vert(DeskSides, (+12)/40.0f, +0.1f, -0.01f, normal, tcoords);
+			vert(DeskSides, (+12)/40.0f, -0.1f, -0.01f, normal, tcoords);
 			
 		DeskSides.seal(true);
 
@@ -839,11 +917,15 @@ public class TennisES2 implements GLEventListener {
 	int i,j;
 	float y1,y2,r1,r2,x,z;
 	
-	Ball = GLArrayDataServer.createGLSLInterleaved(6, GL.GL_FLOAT, false, 840, GL.GL_STATIC_DRAW);
+	Ball = GLArrayDataServer.createGLSLInterleaved(8, GL.GL_FLOAT, false, 840, GL.GL_STATIC_DRAW);
 	Ball.addGLSLSubArray("vertices", 3, GL.GL_ARRAY_BUFFER);
 	Ball.addGLSLSubArray("normals", 3, GL.GL_ARRAY_BUFFER);
+	Ball.addGLSLSubArray("texcoords", 2, GL.GL_ARRAY_BUFFER);
 	
 	float normal[] = new float[3];
+	float tcoords[] = new float[2];
+	
+	tcoords[0] = 0f; tcoords[1] = 0f;
 
 	/* draw the ball */
 	
@@ -859,12 +941,12 @@ public class TennisES2 implements GLEventListener {
 				x = (float) (r1*Math.cos((float)j/21*2.0f*Math.PI));
 				z = (float) (r1*Math.sin((float)j/21*2.0f*Math.PI));
 				normal[0] = 10*x; normal[1] = 10*y1; normal[2] = 10*z;
-				vert(Ball, x, y1, z, normal);
+				vert(Ball, x, y1, z, normal, tcoords);
 				
 				x = (float) (r2*Math.cos((float)j/21*2.0f*Math.PI));
 				z = (float) (r2*Math.sin((float)j/21*2.0f*Math.PI));
 				normal[0] = 10*x; normal[1] = 10*y2; normal[2] = 10*z;
-				vert(Ball, x, y2, z, normal);
+				vert(Ball, x, y2, z, normal, tcoords);
 			}
 		}
 		
