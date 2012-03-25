@@ -116,7 +116,7 @@ public class TennisES2 implements GLEventListener {
       Screen screen = NewtFactory.createScreen(dpy, 1);
       GLCapabilities caps = new GLCapabilities(GLProfile.getDefault());
       glWindow = GLWindow.create(screen, caps);
-      
+       
       glWindow.setTitle("TennisES2 demo");
       glWindow.setSize(640, 480);
       glWindow.setPosition(40, 40);
